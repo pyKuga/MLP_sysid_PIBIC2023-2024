@@ -1,0 +1,138 @@
+using MultivariateTimeSeries
+
+# Define the endogenous and exogenous variables
+endogenous_vars = [:y1, :y2, :y3]
+exogenous_vars = [:x1, :x2]
+
+# Specify the lag order and other model parameters
+p = 2   # Lag order
+constant = true  # Include a constant in the model
+trend = false    # Do not include a trend in the model
+
+# Create a VARX model object
+model = VARX(endogenous_vars, exogenous_vars, p, constant, trend)
+
+# Fit the model to the data
+fit!(model, data)
+
+# Print the estimated coefficients
+println(model.coefs)
+
+#include <iostream>
+#include <armadillo>
+
+using namespace std;
+using namespace arma;
+
+int main()
+{
+    // Load the data into a matrix or array
+    mat data = { {1, 2, 3, 4, 5},
+                 {2, 3, 4, 5, 6},
+                 {3, 4, 5, 6, 7},
+                 {4, 5, 6, 7, 8} };
+    
+    // Define the endogenous and exogenous variables
+    uvec endogenous_vars = {0, 1, 2};
+    uvec exogenous_vars = {3, 4};
+
+    // Specify the lag order and other model parameters
+    int p = 2;          // Lag order
+    bool constant = true; // Include a constant in the model
+    bool trend = false;   // Do not include a trend in the model
+
+    // Create a VARX model object
+    int n_endo = endogenous_vars.n_elem;
+    int n_exo = exogenous_vars.n_elem;
+    int n_obs = data.n_cols;
+    int n_coef = n_endo * (p + 1) + n_exo * (p + 1) + constant;
+    mat X = zeros(n_obs - p, n_coef);
+    mat Y = data.cols(p, n_obs - 1).t();
+    for (int i = 0; i < n_obs - p; i++) {
+        int k = 0;
+        for (int j = p; j >= 0; j--) {
+            X(i, k) = Y(i + j, endogenous_vars(0));
+            k++;
+            X(i, k) = Y(i + j, endogenous_vars(1));
+            k++;
+            X(i, k) = Y(i + j, endogenous_vars(2));
+            k++;
+        }
+        for (int j = p; j >= 0; j--) {
+            X(i, k) = data(endogenous_vars(0), i + j);
+            k++;
+            X(i, k) = data(endogenous_vars(1), i + j);
+            k++;
+        }
+        if (constant) {
+            X(i, k) = 1;
+            k++;
+        }
+    }
+    mat coef = inv(X.t() * X) * X.t() * Y;
+    
+    // Print the estimated coefficients
+    cout << "Coefficients:" << endl;
+    cout << coef << endl;
+
+    return 0;
+}
+
+
+
+; Define the dimensions of the input-output data
+%define N 100   ; Number of time samples
+%define m 2    ; Number of inputs
+%define p 3    ; Number of outputs
+
+section .data
+    ; Define the parameters of the ERA algorithm
+    r equ 5          ; Order of the Hankel matrix
+    k equ 4          ; Number of block rows in the Hankel matrix
+    l equ 6          ; Number of block columns in the Hankel matrix
+    p equ 3          ; Number of outputs
+    n equ p * r      ; Number of columns in the Hankel matrix
+    m equ k * l      ; Number of rows in the Hankel matrix
+    s equ n - r      ; Number of shift rows
+    q equ m - l      ; Number of shift columns
+    t equ 2 * k - 1  ; Number of block rows in the extended Hankel matrix
+
+section .bss
+    ; Define the variables used in the algorithm
+    H resq m * n      ; Hankel matrix
+    H1 resq k * n    ; First block row of Hankel matrix
+    H2 resq (k - 1) * n  ; Second block row of Hankel matrix
+    Ht resq (2 * k - 1) * n ; Extended Hankel matrix
+    R resq r * r      ; Auto-correlation matrix
+    Q resq m * m      ; Cross-correlation matrix
+    E resq n * r      ; Left singular vectors of R
+    F resq n * r      ; Right singular vectors of R
+    G resq m * r      ; Input-state Hankel matrix
+    K resq r * p      ; Observer gain matrix
+    A resq r * r      ; Estimated state transition matrix
+    C resq p * r      ; Estimated output matrix
+    X resq n * t      ; Solution of Sylvester equation
+    Y resq r * t      ; State trajectory matrix
+    U resq t * p      ; Output trajectory matrix
+    Z resq t * m      ; Input trajectory matrix
+
+section .text
+    global era
+    era:
+        ; Construct the Hankel matrix
+        mov rsi, input_addr   ; Load the address of the input data
+        mov rdi, output_addr  ; Load the address of the output data
+        mov ecx, p            ; Set the output index
+    outer_loop:
+        mov ebx, ecx          ; Set the input index
+        inner_loop:
+            ; Compute the elements of the Hankel matrix
+            mov rax, rsi        ; Load the address of the current input
+            add rax, ebx        ; Add the input index to the address
+            movq xmm0, [rax]    ; Load the current input value
+            mov rax, rdi        ; Load the address of the current output
+            add rax, ecx        ; Add the output index to the address
+            movq xmm1, [rax]    ; Load the current output value
+            mov rax, H          ; Load the address of the Hankel matrix
+            add rax, (ecx - 1) * r + (ebx - 1) * p * r
+                                ; Compute the address of the
